@@ -1,0 +1,13 @@
+name: u2net
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - jupyter
+  - pytorch
+  - tqdm
+  - black
+  - scikit-learn
+  - pip:
+    - blackcellmagic
