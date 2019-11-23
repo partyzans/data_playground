@@ -114,8 +114,6 @@ def process_image(image):
         final_mean = final_bayesian.mean(axis=0)
         final_std = final_bayesian.std(axis=0)
 
-        x = convert_to_grayscale(final_mean)
-
         post_processed_image = Image.fromarray(convert_to_grayscale(final_mean), mode="L")
         post_processed_umap = Image.fromarray(uncertainity_map(final_std), mode="L")
         base64_result = pil_to_b64(post_processed_image)
