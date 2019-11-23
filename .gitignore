@@ -1,3 +1,6 @@
 .DS_Store
 *.sw*
 .*.sw*
+
+__pycache__
+.ipynb_checkpoints/
