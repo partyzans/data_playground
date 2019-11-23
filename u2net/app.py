@@ -1,5 +1,6 @@
 import base64
 import datetime
+import json
 from io import BytesIO
 
 import dash
@@ -7,6 +8,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
 from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
+from dramatiq.results.errors import ResultMissing
 from PIL import Image
 
 from processimage import process_image
@@ -17,6 +20,9 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(
     [
+        html.H1("IsletNet+"),
+        dcc.Store(id="memory", data=[]),
+        dcc.Interval(id="interval-component", interval=1 * 1000, n_intervals=0),  # in milliseconds
         dcc.Upload(
             id="upload-image",
             children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
@@ -37,19 +43,71 @@ app.layout = html.Div(
             id="output-datatable",
             columns=[
                 {"name": name, "id": ids}
-                for name, ids in [("Filename", "filename"), ("Message id", "message_id")]
+                for name, ids in [
+                    (["", "Filename"], "filename"),
+                    (["", "Status"], "status"),
+                    (["Islet", "Count"], "count"),
+                    (["Islet", "PlusMinus"], "countplusminus"),
+                    (["Islet", "PlusMinusRelative"], "countplusminusrelative"),
+                    (["Islet", "Decision"], "countdecision"),
+                    (["Volume", "Count"], "volume"),
+                    (["Volume", "PlusMinus"], "volumeplusminus"),
+                    (["Volume", "PlusMinusRelative"], "volumeplusminusrelative"),
+                    (["Volume", "Decision"], "volumedecision"),
+                    (["Purity", "Count"], "purity"),
+                    (["Purity", "PlusMinus"], "purityplusminus"),
+                    (["Purity", "PlusMinusRelative"], "purityplusminusrelative"),
+                    (["Purity", "Decision"], "puritydecision"),
+                ]
             ],
-            data=[{"filename": "Test", "message_id": "Test"}],
+            data=[],
             editable=False,
             sort_action="native",
             sort_mode="multi",
             row_selectable="single",
             row_deletable=True,
+            merge_duplicate_headers=True,
         ),
         html.Div(id="output-data-table"),
         html.Div(id="output-image-upload"),
     ]
 )
+
+
+@app.callback(
+    Output("output-datatable", "data"),
+    [Input("interval-component", "n_intervals")],
+    [State("output-datatable", "data"), State("memory", "data")],
+)
+def update_metrics(n, current_data, data):
+    new_data = []
+    changed = False
+    for row in data:
+        current_row = None
+        for table_row in current_data:
+            if table_row["filename"] == row["filename"]:
+                current_row = table_row
+                break
+        if current_row is None:
+            current_row = {**row, "status": "Calculating"}
+
+        if current_row["status"].startswith("Calculating"):
+            message = process_image.message().copy(message_id=current_row["message_id"])
+            try:
+                result = message.get_result()
+                current_row = {**current_row, **json.loads(result), "status": "Done"}
+            except ResultMissing:
+                current_row["status"] = current_row["status"] + "."
+                if len(current_row["status"]) > 20:
+                    current_row["status"] = "Calculating"
+            except Exception:
+                current_row["status"] = "Error"
+            changed = True
+        new_data.append(current_row)
+    if changed:
+        return new_data
+    else:
+        raise PreventUpdate()
 
 
 def b64_to_pil(string):
@@ -87,7 +145,7 @@ def parse_contents(contents, filename, date):
 
 
 @app.callback(
-    Output("output-datatable", "data"),
+    Output("memory", "data"),
     [Input("upload-image", "contents")],
     [State("upload-image", "filename"), State("upload-image", "last_modified")],
 )
