@@ -18,7 +18,7 @@ result_backend = RedisBackend()
 redis_broker = RedisBroker(host="127.0.0.1", port=6379)
 redis_broker.add_middleware(Results(backend=result_backend))
 dramatiq.set_broker(redis_broker)
-device = "cpu"
+device = "cuda"
 
 
 def load_model(model_path, device):
@@ -99,7 +99,7 @@ def process_image(image):
         model = load_model("./models/unet_W512_H384_3_final.pth", device)
         model.train()
         all_probabs = []
-        for _ in range(2):
+        for _ in range(100):
             model_result = model.forward(prepared)
             probab = nn.Softmax(dim=0).forward(model_result[0])
             all_probabs.append(probab.cpu().numpy())

@@ -64,14 +64,40 @@ app.layout = html.Div(
             editable=False,
             sort_action="native",
             sort_mode="multi",
-            row_selectable="single",
             row_deletable=True,
             merge_duplicate_headers=True,
         ),
         html.Div(id="output-data-table"),
-        html.Div(id="output-image-upload"),
+        html.Div(id="output-image"),
     ]
 )
+
+
+@app.callback(Output("output-image", "children"), [Input("output-datatable", "derived_virtual_data")])
+def update_graphs(data):
+    if data:
+        children = []
+        for row in data:
+            if row["status"] == "Done":
+                children.append(
+                    html.Div(
+                        [
+                            html.H5(row["filename"]),
+                            # HTML images accept base64 encoded strings in the same format
+                            # that is supplied by the upload
+                            html.Img(
+                                src="data:image/png;base64," + row["content_resized"], style={"margin": "2px"}
+                            ),
+                            html.Img(src="data:image/png;base64," + row["mask"], style={"margin": "2px"}),
+                            html.Img(src="data:image/png;base64," + row["umap"], style={"margin": "2px"}),
+                            html.Hr(),
+                        ]
+                    )
+                )
+            else:
+                children.append(html.Div([html.H5(row["filename"]), html.Div(row["status"])]))
+        return children
+    raise PreventUpdate()
 
 
 @app.callback(
@@ -126,22 +152,9 @@ def pil_to_b64(im, enc_format="png", **kwargs):
 
 def parse_contents(contents, filename, date):
     im_pil = b64_to_pil(contents.split(";base64,")[-1]).resize((512, 384), Image.LANCZOS).convert("RGB")
-    new_content = "data:image/png;base64," + pil_to_b64(im_pil)
+    new_content = pil_to_b64(im_pil)
     result = process_image.send(contents)
     return {"content_resized": new_content, "filename": filename, "message_id": result.message_id}
-    # return html.Div(
-    #     [
-    #         html.H5(filename),
-    #         html.H6(datetime.datetime.fromtimestamp(date)),
-    #         # HTML images accept base64 encoded strings in the same format
-    #         # that is supplied by the upload
-    #         html.Img(src=new_content),
-    #         html.Hr(),
-    #         html.Div("Raw Content"),
-    #         html.Pre(new_content[0:200] + "...", style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"}),
-    #         html.Div(result.message_id),
-    #     ]
-    # )
 
 
 @app.callback(
