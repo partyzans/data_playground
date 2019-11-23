@@ -15,7 +15,7 @@ from calcs import batchCalc
 from model import UNet
 
 result_backend = RedisBackend()
-redis_broker = RedisBroker(host="127.0.0.1", port=6379)
+redis_broker = RedisBroker(host="127.0.0.1", port=8765)
 redis_broker.add_middleware(Results(backend=result_backend))
 dramatiq.set_broker(redis_broker)
 device = "cuda"
@@ -24,6 +24,7 @@ device = "cuda"
 def load_model(model_path, device):
     model = UNet(3, 3)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    model.to(device)
     return model
 
 
