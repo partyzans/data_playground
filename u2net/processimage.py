@@ -7,23 +7,28 @@ import numpy as np
 import torch
 import torch.nn as nn
 from dramatiq.brokers.redis import RedisBroker
+from dramatiq.rate_limits import ConcurrentRateLimiter
+from dramatiq.rate_limits.backends import RedisBackend as LimitRedisBackend
 from dramatiq.results import Results
-from dramatiq.results.backends import RedisBackend
+from dramatiq.results.backends import RedisBackend as ResultsRedisBackend
 from PIL import Image
 
 from calcs import batchCalc
 from model import UNet
 
-result_backend = RedisBackend()
+result_backend = ResultsRedisBackend()
 redis_broker = RedisBroker(host="127.0.0.1", port=6379)
 redis_broker.add_middleware(Results(backend=result_backend))
 dramatiq.set_broker(redis_broker)
+limiter_backend = LimitRedisBackend()
+DISTRIBUTED_MUTEX = ConcurrentRateLimiter(limiter_backend, "distributed-mutex", limit=4)
 device = "cpu"
 
 
 def load_model(model_path, device):
     model = UNet(3, 3)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    model.to(device)
     return model
 
 
@@ -39,9 +44,12 @@ def pil_to_b64(im, enc_format="png", **kwargs):
     return base64.b64encode(buff.getvalue()).decode("utf-8")
 
 
-def prepare_image(image, out_size, mean, device):
-    input_image = image.resize(out_size, Image.LANCZOS).convert("RGB")
-    input_array = np.array(input_image, dtype=np.float32)
+def resize(image, out_size):
+    return image.resize(out_size, Image.LANCZOS).convert("RGB")
+
+
+def prepare_image(image, mean, device):
+    input_array = np.array(image, dtype=np.float32)
     prepared_tensor = (
         ((torch.from_numpy(input_array) - torch.tensor(mean)) / 255.0).permute(2, 0, 1).unsqueeze(0)
     )
@@ -92,50 +100,52 @@ def get_mean_std(data):
 
 @dramatiq.actor(store_results=True)
 def process_image(image):
-    print(f"Starting with data: {image[:100]}")
-    with torch.no_grad():
-        pil_image = b64_to_pil(image.split(";base64,")[-1])
-        prepared = prepare_image(pil_image, (512, 384), (69.2614, 55.9220, 32.6043), device)
-        model = load_model("./models/unet_W512_H384_3_final.pth", device)
-        model.train()
-        all_probabs = []
-        for _ in range(2):
-            model_result = model.forward(prepared)
-            probab = nn.Softmax(dim=0).forward(model_result[0])
-            all_probabs.append(probab.cpu().numpy())
+    with DISTRIBUTED_MUTEX.acquire():
+        print(f"Starting with data: {image[-100:]}")
+        with torch.no_grad():
+            pil_image = b64_to_pil(image.split(";base64,")[-1])
+            resized = resize(pil_image, (512, 384))
+            prepared = prepare_image(resized, (69.2614, 55.9220, 32.6043), device)
+            model = load_model("./models/unet_W512_H384_3_final.pth", device)
+            model.train()
+            all_probabs = []
+            for _ in range(2):
+                model_result = model.forward(prepared)
+                probab = nn.Softmax(dim=0).forward(model_result[0])
+                all_probabs.append(probab.cpu().numpy())
 
-        all_postprocessed = [postprocess_model(x, 0.0, 0.0) for x in all_probabs]
-        counts, purities, volumes = batchCalc(all_postprocessed, ["a"] * len(all_postprocessed))
-        mean_counts, pm_counts, c_relative, c_relative_str = get_mean_std(counts)
-        mean_purities, pm_purities, p_relative, p_relative_str = get_mean_std(purities)
-        mean_volumes, pm_volumes, v_relative, v_relative_str = get_mean_std(volumes)
+            all_postprocessed = [postprocess_model(x, 0.0, 0.0) for x in all_probabs]
+            counts, purities, volumes = batchCalc(all_postprocessed, ["a"] * len(all_postprocessed))
+            mean_counts, pm_counts, c_relative, c_relative_str = get_mean_std(counts)
+            mean_purities, pm_purities, p_relative, p_relative_str = get_mean_std(purities)
+            mean_volumes, pm_volumes, v_relative, v_relative_str = get_mean_std(volumes)
 
-        final_bayesian = np.array(all_probabs)
-        final_mean = final_bayesian.mean(axis=0)
-        final_std = final_bayesian.std(axis=0)
+            final_bayesian = np.array(all_probabs)
+            final_mean = final_bayesian.mean(axis=0)
+            final_std = final_bayesian.std(axis=0)
 
-        x = convert_to_grayscale(final_mean)
-
-        post_processed_image = Image.fromarray(convert_to_grayscale(final_mean), mode="L")
-        post_processed_umap = Image.fromarray(uncertainity_map(final_std), mode="L")
-        base64_result = pil_to_b64(post_processed_image)
-        base64_umap = pil_to_b64(post_processed_umap)
-        print(f"Finished with data: {image[:100]}")
-        return json.dumps(
-            {
-                "mask": base64_result,
-                "umap": base64_umap,
-                "count": mean_counts,
-                "countplusminus": pm_counts,
-                "countplusminusrelative": c_relative,
-                "countdecision": c_relative_str,
-                "purity": mean_purities,
-                "purityplusminus": pm_purities,
-                "purityplusminusrelative": p_relative,
-                "puritydecision": p_relative_str,
-                "volume": mean_volumes,
-                "volumeplusminus": pm_volumes,
-                "volumeplusminusrelative": v_relative,
-                "volumedecision": v_relative_str,
-            }
-        )
+            post_processed_image = Image.fromarray(convert_to_grayscale(final_mean), mode="L")
+            post_processed_umap = Image.fromarray(uncertainity_map(final_std), mode="L")
+            base64_result = pil_to_b64(post_processed_image)
+            base64_umap = pil_to_b64(post_processed_umap)
+            base64_input = pil_to_b64(resized)
+            print(f"Finished with data: {image[-100:]}")
+            return json.dumps(
+                {
+                    "input": base64_input,
+                    "mask": base64_result,
+                    "umap": base64_umap,
+                    "count": mean_counts,
+                    "countplusminus": pm_counts,
+                    "countplusminusrelative": c_relative,
+                    "countdecision": c_relative_str,
+                    "purity": mean_purities,
+                    "purityplusminus": pm_purities,
+                    "purityplusminusrelative": p_relative,
+                    "puritydecision": p_relative_str,
+                    "volume": mean_volumes,
+                    "volumeplusminus": pm_volumes,
+                    "volumeplusminusrelative": v_relative,
+                    "volumedecision": v_relative_str,
+                }
+            )
