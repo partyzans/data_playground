@@ -109,7 +109,7 @@ def poll(request, body, response, debug=True):
             resolved_result.pop("umask", None)
             resolved_result.pop("umap", None)
             resolved_result["id"] = mid
-            resolved_result["upload_id"] = id_pairs[mid]
+            resolved_result["upload_id"] = int(id_pairs[mid])
 
             resolved_results.append(resolved_result)
         except ResultMissing as e:
@@ -120,4 +120,7 @@ def poll(request, body, response, debug=True):
         return "processing"
 
     # print(resolved_results)
-    return json.dumps(resolved_results)
+    serialized = json.dumps(resolved_results)
+    resolved_results = {}
+
+    return serialized
