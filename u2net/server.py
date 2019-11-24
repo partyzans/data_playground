@@ -108,6 +108,7 @@ def poll(request, body, response, debug=True):
             resolved_result = json.loads(real_result)
             resolved_result.pop("umask", None)
             resolved_result.pop("umap", None)
+            resolved_result.pop("input", None)
             resolved_result["id"] = mid
             resolved_result["upload_id"] = int(id_pairs[mid])
 
@@ -122,5 +123,6 @@ def poll(request, body, response, debug=True):
     # print(resolved_results)
     serialized = json.dumps(resolved_results)
     resolved_results = {}
+    id_pairs = {}
 
     return serialized
