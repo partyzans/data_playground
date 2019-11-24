@@ -22,7 +22,7 @@ app.layout = html.Div(
     [
         html.H1("IsletNet+"),
         dcc.Store(id="memory", data=[]),
-        dcc.Interval(id="interval-component", interval=1 * 1000, n_intervals=0),  # in milliseconds
+        dcc.Interval(id="interval-component", interval=3 * 1000, n_intervals=0),  # in milliseconds
         dcc.Upload(
             id="upload-image",
             children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
@@ -119,6 +119,7 @@ def update_metrics(n, current_data, data):
     new_data = []
     changed = False
     can_run = True
+    can_check = True
     for row in data:
         current_row = None
         for table_row in current_data:
@@ -128,20 +129,21 @@ def update_metrics(n, current_data, data):
         if current_row is None:
             current_row = {**row}
             changed = True
-            can_run = False
 
-        if current_row["status"].startswith("Calculating"):
+        if can_check and current_row["status"].startswith("Calculating"):
+            can_check = False
             message = process_image.message().copy(message_id=current_row["message_id"])
             try:
                 result = message.get_result()
                 current_row = {**current_row, **json.loads(result), "status": "Done"}
+                changed = True
             except ResultMissing:
                 current_row["status"] = current_row["status"] + "."
                 if len(current_row["status"]) > 20:
                     current_row["status"] = "Calculating"
             except Exception:
                 current_row["status"] = "Error"
-            changed = True
+                changed = True
 
         if can_run and current_row["status"].startswith("New"):
             can_run = False
