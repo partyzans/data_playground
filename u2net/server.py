@@ -18,10 +18,11 @@ api.http.add_middleware(CORSMiddleware(api))
 
 
 results = {}
+id_pairs = {}
 
 
-def writeFile(data):
-    f = open('files/' + str(random()) + '.png', 'w+b')
+def writeFile(data, relpath = 'files/test.png'):
+    f = open(relpath, 'w+b')
     binary_format = bytearray(data)
     f.write(binary_format)
     f.close()
@@ -79,6 +80,26 @@ def submit(request, body, response, debug=True):
 
     return mid
 
+@hug.post('/upload/{cnt}')
+def submit(cnt, request, body, response):
+
+    print(cnt)
+    print(request)
+    # print(body)
+    print(response)
+
+    decoded = base64.b64decode(body)
+    relpath = 'files/' + str(random()) + '.png'
+    writeFile(decoded, relpath)
+
+    im = Image.open(relpath)
+    result = process_image.send(pil_to_b64(im))
+    mid = result.message_id
+    results[mid] = result
+    id_pairs[mid] = id
+
+    response.status = HTTP_200
+    return "ok"
 
 @hug.get('/poll')
 def poll(request, body, response, debug=True):
@@ -93,6 +114,7 @@ def poll(request, body, response, debug=True):
             resolved_result.pop('umask', None)
             resolved_result.pop('umap', None)
             resolved_result['id'] = mid
+            resolved_result['upload_id'] = id_pairs[mid]
 
             resolved_results.append(resolved_result)
         except ResultMissing as e:
@@ -102,7 +124,5 @@ def poll(request, body, response, debug=True):
         response.status = HTTP_202
         return "processing"
 
-    print(resolved_results)
-    my
-
+    #print(resolved_results)
     return json.dumps(resolved_results)
