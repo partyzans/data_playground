@@ -2,6 +2,7 @@ import cv2
 import math
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 IE = 1.767145
 UMPX = 3.7
@@ -11,7 +12,7 @@ def plotGray(img):
   plt.imshow(im)
 
 def findContours(img):
-  if (cv2.__version__ == '4.1.2'):
+  if (cv2.__version__ == '4.1.1'):
     contours, hier = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
   else:

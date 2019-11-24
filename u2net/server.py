@@ -89,7 +89,11 @@ def poll(request, body, response, debug=True):
     for mid, result in results.items():
         try:
             real_result = result.get_result()
-            resolved_result = b64_to_pil(json.loads(real_result)["mask"])
+            resolved_result = json.loads(real_result)
+            resolved_result.pop('umask', None)
+            resolved_result.pop('umap', None)
+            resolved_result['id'] = mid
+
             resolved_results.append(resolved_result)
         except ResultMissing as e:
             err = True
@@ -99,17 +103,6 @@ def poll(request, body, response, debug=True):
         return "processing"
 
     print(resolved_results)
+    my
 
-    return "ok"
-
-# @hug.get('/poll/{id}')
-# def poll(id):
-#     response.status = HTTP_200
-
-
-#     print(id)
-
-#     real_result = results[id].get_result()
-#     b64_to_pil(json.loads(real_result)["mask"])
-
-#     return "ok"
+    return json.dumps(resolved_results)
