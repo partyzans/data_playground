@@ -113,6 +113,15 @@ def new_runner(n, table_data, input_data):
             try:
                 result = message.get_result()
                 new_row = {**row, **json.loads(result), "status": "Done"}
+                # round decimals
+                rount_to = 3
+                new_row["countplusminusrelative"] = round(new_row["countplusminusrelative"], rount_to)
+                new_row["purity"] = round(new_row["purity"], rount_to)
+                new_row["purityplusminus"] = round(new_row["purityplusminus"], rount_to)
+                new_row["purityplusminusrelative"] = round(new_row["purityplusminusrelative"], rount_to)
+                new_row["volume"] = round(new_row["volume"], rount_to)
+                new_row["volumeplusminus"] = round(new_row["volumeplusminus"], rount_to)
+                new_row["volumeplusminusrelative"] = round(new_row["volumeplusminusrelative"], rount_to)
                 del new_row["mask"]
                 del new_row["umap"]
                 del new_row["input"]
