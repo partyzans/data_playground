@@ -259,9 +259,50 @@ def update_graphs(data):
                             html.H5(row["filename"]),
                             # HTML images accept base64 encoded strings in the same format
                             # that is supplied by the upload
-                            html.Img(src="data:image/png;base64," + result["input"], style={"margin": "2px"}),
-                            html.Img(src="data:image/png;base64," + result["mask"], style={"margin": "2px"}),
-                            html.Img(src="data:image/png;base64," + result["umap"], style={"margin": "2px"}),
+                            html.Div(
+                                children=[
+                                    html.Table(
+                                        # Header
+                                        [
+                                            html.Tr(
+                                                [
+                                                    html.Th(col)
+                                                    for col in [
+                                                        "Input image",
+                                                        "Islets map",
+                                                        "Uncertainity map",
+                                                    ]
+                                                ],
+                                                style={"textAlign": "center"},
+                                            )
+                                        ]
+                                        +
+                                        # Body
+                                        [
+                                            html.Tr(
+                                                [
+                                                    html.Td(col)
+                                                    for col in [
+                                                        html.Img(
+                                                            src="data:image/png;base64," + result["input"],
+                                                            style={"margin": "2px"},
+                                                        ),
+                                                        html.Img(
+                                                            src="data:image/png;base64," + result["mask"],
+                                                            style={"margin": "2px"},
+                                                        ),
+                                                        html.Img(
+                                                            src="data:image/png;base64," + result["umap"],
+                                                            style={"margin": "2px"},
+                                                        ),
+                                                    ]
+                                                ],
+                                                style={"textAlign": "center"},
+                                            )
+                                        ]
+                                    )
+                                ]
+                            ),
                             html.Hr(),
                         ]
                     )
