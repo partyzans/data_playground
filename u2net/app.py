@@ -7,8 +7,10 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
+import dash_table.FormatTemplate as FormatTemplate
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
+from dash_table.Format import Format, Scheme, Sign, Symbol
 from dramatiq.results.errors import ResultMissing
 from PIL import Image
 
@@ -42,56 +44,199 @@ app.layout = html.Div(
         dash_table.DataTable(
             id="output-datatable",
             columns=[
-                {"name": name, "id": ids}
-                for name, ids in [
-                    (["", "Filename"], "filename"),
-                    (["", "Status"], "status"),
-                    (["Islet", "Count"], "count"),
-                    (["Islet", "PlusMinus"], "countplusminus"),
-                    (["Islet", "PlusMinusRelative"], "countplusminusrelative"),
-                    (["Islet", "Decision"], "countdecision"),
-                    (["Volume", "Count"], "volume"),
-                    (["Volume", "PlusMinus"], "volumeplusminus"),
-                    (["Volume", "PlusMinusRelative"], "volumeplusminusrelative"),
-                    (["Volume", "Decision"], "volumedecision"),
-                    (["Purity", "Count"], "purity"),
-                    (["Purity", "PlusMinus"], "purityplusminus"),
-                    (["Purity", "PlusMinusRelative"], "purityplusminusrelative"),
-                    (["Purity", "Decision"], "puritydecision"),
-                ]
+                {"name": ["", "Filename"], "id": "filename", "type": "text"},
+                {"name": ["", "Status"], "id": "status", "type": "text"},
+                {
+                    "name": ["Islet", "Count"],
+                    "id": "count",
+                    "type": "numeric",
+                    "format": Format(precision=0, scheme=Scheme.fixed),
+                },
+                {
+                    "name": ["Islet", "2 sigma"],
+                    "id": "countplusminus",
+                    "type": "numeric",
+                    "format": Format(precision=1, scheme=Scheme.fixed, symbol=Symbol.yes, symbol_prefix="±"),
+                },
+                # {"name": ["Islet", "PlusMinusRelative"], "id": "countplusminusrelative", "type": "numeric"},
+                {"name": ["Islet", "Decision"], "id": "countdecision", "type": "text"},
+                {
+                    "name": ["Volume", "Volume"],
+                    "id": "volume",
+                    "type": "numeric",
+                    "format": Format(precision=1, scheme=Scheme.fixed),
+                },
+                {
+                    "name": ["Volume", "2 sigma"],
+                    "id": "volumeplusminus",
+                    "type": "numeric",
+                    "format": Format(precision=1, scheme=Scheme.fixed, symbol=Symbol.yes, symbol_prefix="±"),
+                },
+                # {"name": ["Volume", "PlusMinusRelative"], "id": "volumeplusminusrelative", "type": "numeric"},
+                {"name": ["Volume", "Decision"], "id": "volumedecision", "type": "text"},
+                {
+                    "name": ["Purity", "Purity"],
+                    "id": "purity",
+                    "type": "numeric",
+                    "format": FormatTemplate.percentage(1),
+                },
+                {
+                    "name": ["Purity", "2 sigma"],
+                    "id": "purityplusminus",
+                    "type": "numeric",
+                    "format": Format(
+                        precision=1,
+                        scheme=Scheme.percentage,
+                        symbol=Symbol.yes,
+                        symbol_prefix="±",
+                        symbol_suffix="%",
+                    ),
+                },
+                # {"name": ["Purity", "PlusMinusRelative"], "id": "purityplusminusrelative", "type": "numeric"},
+                {"name": ["Purity", "Decision"], "id": "puritydecision", "type": "text"},
             ],
             data=[],
             editable=False,
             sort_action="native",
             sort_mode="multi",
-            row_deletable=True,
             merge_duplicate_headers=True,
             style_data_conditional=[
                 {
-                    'if': {
-                        'column_id': 'countdecision',
-                        'filter_query': '{countdecision} eq "check"'
-                    },
-                    'backgroundColor': 'orange',
-                    'color': 'white',
+                    "if": {"column_id": "countdecision", "filter_query": '{countdecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
                 },
                 {
-                    'if': {
-                        'column_id': 'countdecision',
-                        'filter_query': '{countdecision} eq "ok"'
-                    },
-                    'backgroundColor': 'green',
-                    'color': 'white',
+                    "if": {"column_id": "countdecision", "filter_query": '{countdecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
                 },
                 {
-                    'if': {
-                        'column_id': 'countdecision',
-                        'filter_query': '{countdecision} eq "critical"'
-                    },
-                    'backgroundColor': 'red',
-                    'color': 'white',
+                    "if": {"column_id": "countdecision", "filter_query": '{countdecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
                 },
-            ]
+                {
+                    "if": {"column_id": "countplusminus", "filter_query": '{countdecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "countplusminus", "filter_query": '{countdecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "countplusminus", "filter_query": '{countdecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "count", "filter_query": '{countdecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "count", "filter_query": '{countdecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "count", "filter_query": '{countdecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volumedecision", "filter_query": '{volumedecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volumedecision", "filter_query": '{volumedecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volumedecision", "filter_query": '{volumedecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volumeplusminus", "filter_query": '{volumedecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volumeplusminus", "filter_query": '{volumedecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volumeplusminus", "filter_query": '{volumedecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volume", "filter_query": '{volumedecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volume", "filter_query": '{volumedecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "volume", "filter_query": '{volumedecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "puritydecision", "filter_query": '{puritydecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "puritydecision", "filter_query": '{puritydecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "puritydecision", "filter_query": '{puritydecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "purityplusminus", "filter_query": '{puritydecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "purityplusminus", "filter_query": '{puritydecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "purityplusminus", "filter_query": '{puritydecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "purity", "filter_query": '{puritydecision} eq "check"'},
+                    "backgroundColor": "orange",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "purity", "filter_query": '{puritydecision} eq "ok"'},
+                    "backgroundColor": "green",
+                    "color": "white",
+                },
+                {
+                    "if": {"column_id": "purity", "filter_query": '{puritydecision} eq "critical"'},
+                    "backgroundColor": "red",
+                    "color": "white",
+                },
+            ],
         ),
         html.Div(id="output-data-table"),
         html.Div(id="output-image"),
@@ -140,14 +285,14 @@ def new_runner(n, table_data, input_data):
                 result = message.get_result()
                 new_row = {**row, **json.loads(result), "status": "Done"}
                 # round decimals
-                rount_to = 3
-                new_row["countplusminusrelative"] = round(new_row["countplusminusrelative"], rount_to)
-                new_row["purity"] = round(new_row["purity"], rount_to)
-                new_row["purityplusminus"] = round(new_row["purityplusminus"], rount_to)
-                new_row["purityplusminusrelative"] = round(new_row["purityplusminusrelative"], rount_to)
-                new_row["volume"] = round(new_row["volume"], rount_to)
-                new_row["volumeplusminus"] = round(new_row["volumeplusminus"], rount_to)
-                new_row["volumeplusminusrelative"] = round(new_row["volumeplusminusrelative"], rount_to)
+                # rount_to = 3
+                # new_row["countplusminusrelative"] = round(new_row["countplusminusrelative"], rount_to)
+                # new_row["purity"] = round(new_row["purity"], rount_to)
+                # new_row["purityplusminus"] = round(new_row["purityplusminus"], rount_to)
+                # new_row["purityplusminusrelative"] = round(new_row["purityplusminusrelative"], rount_to)
+                new_row["volume"] = new_row["volume"] / 10000
+                new_row["volumeplusminus"] = new_row["volumeplusminus"] / 10000
+                # new_row["volumeplusminusrelative"] = round(new_row["volumeplusminusrelative"], rount_to)
                 del new_row["mask"]
                 del new_row["umap"]
                 del new_row["input"]
@@ -218,4 +363,4 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=False, host="0.0.0.0")
+    app.run_server(debug=True, host="0.0.0.0")
