@@ -106,7 +106,7 @@ def poll(request, body, response, debug=True):
         try:
             real_result = result.get_result()
             resolved_result = json.loads(real_result)
-            resolved_result.pop("umask", None)
+            resolved_result.pop("mask", None)
             resolved_result.pop("umap", None)
             resolved_result.pop("input", None)
             resolved_result["id"] = mid
