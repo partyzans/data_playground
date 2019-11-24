@@ -128,6 +128,7 @@ def update_metrics(n, current_data, data):
         if current_row is None:
             current_row = {**row}
             changed = True
+            can_run = False
 
         if current_row["status"].startswith("Calculating"):
             message = process_image.message().copy(message_id=current_row["message_id"])
