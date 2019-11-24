@@ -95,7 +95,17 @@ def update_graphs(data):
                     )
                 )
             else:
-                children.append(html.Div([html.H5(row["filename"]), html.Div(row["status"])]))
+                children.append(
+                    html.Div(
+                        [
+                            html.H5(row["filename"]),
+                            html.Div(row["status"]),
+                            html.Img(
+                                src="data:image/png;base64," + row["content_resized"], style={"margin": "2px"}
+                            ),
+                        ]
+                    )
+                )
         return children
     raise PreventUpdate()
 
@@ -108,6 +118,7 @@ def update_graphs(data):
 def update_metrics(n, current_data, data):
     new_data = []
     changed = False
+    can_run = True
     for row in data:
         current_row = None
         for table_row in current_data:
@@ -115,7 +126,8 @@ def update_metrics(n, current_data, data):
                 current_row = table_row
                 break
         if current_row is None:
-            current_row = {**row, "status": "Calculating"}
+            current_row = {**row}
+            changed = True
 
         if current_row["status"].startswith("Calculating"):
             message = process_image.message().copy(message_id=current_row["message_id"])
@@ -129,6 +141,13 @@ def update_metrics(n, current_data, data):
             except Exception:
                 current_row["status"] = "Error"
             changed = True
+
+        if can_run and current_row["status"].startswith("New"):
+            can_run = False
+            result = process_image.send(current_row["content_resized"])
+            current_row["message_id"] = result.message_id
+            current_row["status"] = "Calculating"
+
         new_data.append(current_row)
     if changed:
         return new_data
@@ -153,8 +172,9 @@ def pil_to_b64(im, enc_format="png", **kwargs):
 def parse_contents(contents, filename, date):
     im_pil = b64_to_pil(contents.split(";base64,")[-1]).resize((512, 384), Image.LANCZOS).convert("RGB")
     new_content = pil_to_b64(im_pil)
-    result = process_image.send(contents)
-    return {"content_resized": new_content, "filename": filename, "message_id": result.message_id}
+    # result = process_image.send(contents)
+    # return {"content_resized": new_content, "filename": filename, "message_id": result.message_id}
+    return {"content_resized": new_content, "filename": filename, "status": "New"}
 
 
 @app.callback(
