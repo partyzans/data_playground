@@ -21,11 +21,12 @@ results = {}
 id_pairs = {}
 
 
-def writeFile(data, relpath = 'files/test.png'):
-    f = open(relpath, 'w+b')
+def writeFile(data, relpath="files/test.png"):
+    f = open(relpath, "w+b")
     binary_format = bytearray(data)
     f.write(binary_format)
     f.close()
+
 
 @hug.startup()
 def add_data(api):
@@ -33,7 +34,7 @@ def add_data(api):
     print("It's working")
 
 
-@hug.post('/upload')
+@hug.post("/upload")
 def main(request, body, response, debug=True):
     print("Bwah", response)
     print(type(body))
@@ -47,27 +48,19 @@ def main(request, body, response, debug=True):
     print(request)
     response.status = HTTP_200
 
-@hug.get('/data')
+
+@hug.get("/data")
 def data(request, body, response, debug=True):
     response.status = HTTP_200
 
     fake_data = [
-        {
-            'id': 1,
-            'name': 'iz181207d0_C1V1_2x1000x',
-            'certainty': 123,
-            'img': 'img',
-        },
-        {
-            'id': 2,
-            'name': 'iz181207d0_C1V1_2x1000x',
-            'certainty': 13,
-            'img': 'img',
-        }
+        {"id": 1, "name": "iz181207d0_C1V1_2x1000x", "certainty": 123, "img": "img"},
+        {"id": 2, "name": "iz181207d0_C1V1_2x1000x", "certainty": 13, "img": "img"},
     ]
     return json.dumps(fake_data)
 
-@hug.get('/submit')
+
+@hug.get("/submit")
 def submit(request, body, response, debug=True):
     response.status = HTTP_200
 
@@ -80,7 +73,8 @@ def submit(request, body, response, debug=True):
 
     return mid
 
-@hug.post('/upload/{cnt}')
+
+@hug.post("/upload/{cnt}")
 def submit(cnt, request, body, response):
 
     print(cnt)
@@ -89,19 +83,20 @@ def submit(cnt, request, body, response):
     print(response)
 
     decoded = base64.b64decode(body)
-    relpath = 'files/' + str(random()) + '.png'
+    relpath = "files/" + str(random()) + ".png"
     writeFile(decoded, relpath)
 
     im = Image.open(relpath)
     result = process_image.send(pil_to_b64(im))
     mid = result.message_id
     results[mid] = result
-    id_pairs[mid] = id
+    id_pairs[mid] = cnt
 
     response.status = HTTP_200
     return "ok"
 
-@hug.get('/poll')
+
+@hug.get("/poll")
 def poll(request, body, response, debug=True):
     response.status = HTTP_200
 
@@ -111,18 +106,18 @@ def poll(request, body, response, debug=True):
         try:
             real_result = result.get_result()
             resolved_result = json.loads(real_result)
-            resolved_result.pop('umask', None)
-            resolved_result.pop('umap', None)
-            resolved_result['id'] = mid
-            resolved_result['upload_id'] = id_pairs[mid]
+            resolved_result.pop("umask", None)
+            resolved_result.pop("umap", None)
+            resolved_result["id"] = mid
+            resolved_result["upload_id"] = id_pairs[mid]
 
             resolved_results.append(resolved_result)
         except ResultMissing as e:
             err = True
 
-    if (err):
+    if err:
         response.status = HTTP_202
         return "processing"
 
-    #print(resolved_results)
+    # print(resolved_results)
     return json.dumps(resolved_results)
