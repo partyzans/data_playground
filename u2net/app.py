@@ -72,41 +72,31 @@ app.layout = html.Div(
     ]
 )
 
-# @app.callback(Output("output-image", "children"), [Input("image-memory", "data")])
-# def update_graphs(data):
-#     if data:
-#         children = []
-#         for row in data:
-#             if row["status"] == "Done":
-#                 children.append(
-#                     html.Div(
-#                         [
-#                             html.H5(row["filename"]),
-#                             # HTML images accept base64 encoded strings in the same format
-#                             # that is supplied by the upload
-#                             html.Img(
-#                                 src="data:image/png;base64," + row["content_resized"], style={"margin": "2px"}
-#                             ),
-#                             html.Img(src="data:image/png;base64," + row["mask"], style={"margin": "2px"}),
-#                             html.Img(src="data:image/png;base64," + row["umap"], style={"margin": "2px"}),
-#                             html.Hr(),
-#                         ]
-#                     )
-#                 )
-#             else:
-#                 children.append(
-#                     html.Div(
-#                         [
-#                             html.H5(row["filename"]),
-#                             html.Div(row["status"]),
-#                             html.Img(
-#                                 src="data:image/png;base64," + row["content_resized"], style={"margin": "2px"}
-#                             ),
-#                         ]
-#                     )
-#                 )
-#         return children
-#     raise PreventUpdate()
+
+@app.callback(Output("output-image", "children"), [Input("output-datatable", "data")])
+def update_graphs(data):
+    if data:
+        all_statuses = [row["status"] == "Done" for row in data]
+        if all(all_statuses):
+            children = []
+            for row in data:
+                message = process_image.message().copy(message_id=row["message_id"])
+                result = json.loads(message.get_result())
+                children.append(
+                    html.Div(
+                        [
+                            html.H5(row["filename"]),
+                            # HTML images accept base64 encoded strings in the same format
+                            # that is supplied by the upload
+                            html.Img(src="data:image/png;base64," + result["input"], style={"margin": "2px"}),
+                            html.Img(src="data:image/png;base64," + result["mask"], style={"margin": "2px"}),
+                            html.Img(src="data:image/png;base64," + result["umap"], style={"margin": "2px"}),
+                            html.Hr(),
+                        ]
+                    )
+                )
+            return children
+    raise PreventUpdate()
 
 
 @app.callback(
@@ -193,4 +183,4 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True, host="0.0.0.0")
+    app.run_server(debug=False, host="0.0.0.0")
