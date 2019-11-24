@@ -123,6 +123,6 @@ def poll(request, body, response, debug=True):
     # print(resolved_results)
     serialized = json.dumps(resolved_results)
     resolved_results = {}
-    id_pairs = {}
+    id_pairs.clear()
 
     return serialized
