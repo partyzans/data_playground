@@ -20,8 +20,8 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(
     [
+        dcc.Store(id="message-ids", data=[]),
         html.H1("IsletNet+"),
-        dcc.Store(id="memory", data=[]),
         dcc.Interval(id="interval-component", interval=3 * 1000, n_intervals=0),  # in milliseconds
         dcc.Upload(
             id="upload-image",
@@ -72,86 +72,86 @@ app.layout = html.Div(
     ]
 )
 
-
-@app.callback(Output("output-image", "children"), [Input("output-datatable", "derived_virtual_data")])
-def update_graphs(data):
-    if data:
-        children = []
-        for row in data:
-            if row["status"] == "Done":
-                children.append(
-                    html.Div(
-                        [
-                            html.H5(row["filename"]),
-                            # HTML images accept base64 encoded strings in the same format
-                            # that is supplied by the upload
-                            html.Img(
-                                src="data:image/png;base64," + row["content_resized"], style={"margin": "2px"}
-                            ),
-                            html.Img(src="data:image/png;base64," + row["mask"], style={"margin": "2px"}),
-                            html.Img(src="data:image/png;base64," + row["umap"], style={"margin": "2px"}),
-                            html.Hr(),
-                        ]
-                    )
-                )
-            else:
-                children.append(
-                    html.Div(
-                        [
-                            html.H5(row["filename"]),
-                            html.Div(row["status"]),
-                            html.Img(
-                                src="data:image/png;base64," + row["content_resized"], style={"margin": "2px"}
-                            ),
-                        ]
-                    )
-                )
-        return children
-    raise PreventUpdate()
+# @app.callback(Output("output-image", "children"), [Input("image-memory", "data")])
+# def update_graphs(data):
+#     if data:
+#         children = []
+#         for row in data:
+#             if row["status"] == "Done":
+#                 children.append(
+#                     html.Div(
+#                         [
+#                             html.H5(row["filename"]),
+#                             # HTML images accept base64 encoded strings in the same format
+#                             # that is supplied by the upload
+#                             html.Img(
+#                                 src="data:image/png;base64," + row["content_resized"], style={"margin": "2px"}
+#                             ),
+#                             html.Img(src="data:image/png;base64," + row["mask"], style={"margin": "2px"}),
+#                             html.Img(src="data:image/png;base64," + row["umap"], style={"margin": "2px"}),
+#                             html.Hr(),
+#                         ]
+#                     )
+#                 )
+#             else:
+#                 children.append(
+#                     html.Div(
+#                         [
+#                             html.H5(row["filename"]),
+#                             html.Div(row["status"]),
+#                             html.Img(
+#                                 src="data:image/png;base64," + row["content_resized"], style={"margin": "2px"}
+#                             ),
+#                         ]
+#                     )
+#                 )
+#         return children
+#     raise PreventUpdate()
 
 
 @app.callback(
     Output("output-datatable", "data"),
     [Input("interval-component", "n_intervals")],
-    [State("output-datatable", "data"), State("memory", "data")],
+    [State("output-datatable", "data"), State("message-ids", "data")],
 )
-def update_metrics(n, current_data, data):
-    new_data = []
+def new_runner(n, table_data, input_data):
     changed = False
-    can_run = True
-    can_check = True
-    for row in data:
-        current_row = None
-        for table_row in current_data:
-            if table_row["filename"] == row["filename"]:
-                current_row = table_row
-                break
-        if current_row is None:
-            current_row = {**row}
-            changed = True
-
-        if can_check and current_row["status"].startswith("Calculating"):
-            can_check = False
-            message = process_image.message().copy(message_id=current_row["message_id"])
+    new_data = []
+    for row in table_data:
+        if row["status"].startswith("Calculating"):
+            message = process_image.message().copy(message_id=row["message_id"])
             try:
                 result = message.get_result()
-                current_row = {**current_row, **json.loads(result), "status": "Done"}
+                new_row = {**row, **json.loads(result), "status": "Done"}
+                del new_row["mask"]
+                del new_row["umap"]
+                del new_row["input"]
                 changed = True
             except ResultMissing:
-                current_row["status"] = current_row["status"] + "."
-                if len(current_row["status"]) > 20:
-                    current_row["status"] = "Calculating"
+                new_row = {**row}
+                pass
             except Exception:
-                current_row["status"] = "Error"
+                new_row = {**row, "status": "Error"}
                 changed = True
+            new_data.append(new_row)
 
-        if can_run and current_row["status"].startswith("New"):
-            can_run = False
-            result = process_image.send(current_row["content_resized"])
-            current_row["message_id"] = result.message_id
-            current_row["status"] = "Calculating"
+        if row["status"].startswith("Done"):
+            new_data.append({**row})
 
-        new_data.append(current_row)
+        if row["status"].startswith("Error"):
+            new_data.append({**row})
+
+    for row in input_data:
+        is_new = True
+        new_filename = row["filename"]
+        for table_row in table_data:
+            if table_row["filename"] == new_filename:
+                is_new = False
+                break
+        if is_new:
+            new_data.append(row)
+            changed = True
+
     if changed:
         return new_data
     else:
@@ -173,15 +173,13 @@ def pil_to_b64(im, enc_format="png", **kwargs):
 
 
 def parse_contents(contents, filename, date):
-    im_pil = b64_to_pil(contents.split(";base64,")[-1]).resize((512, 384), Image.LANCZOS).convert("RGB")
-    new_content = pil_to_b64(im_pil)
-    # result = process_image.send(contents)
-    # return {"content_resized": new_content, "filename": filename, "message_id": result.message_id}
-    return {"content_resized": new_content, "filename": filename, "status": "New"}
+    print(f"Sending {filename}")
+    result = process_image.send(contents)
+    return {"filename": filename, "message_id": result.message_id, "status": "Calculating"}
 
 
 @app.callback(
-    Output("memory", "data"),
+    Output("message-ids", "data"),
     [Input("upload-image", "contents")],
     [State("upload-image", "filename"), State("upload-image", "last_modified")],
 )
@@ -195,4 +193,4 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=False, host="0.0.0.0")
+    app.run_server(debug=True, host="0.0.0.0")
