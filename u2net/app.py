@@ -66,6 +66,32 @@ app.layout = html.Div(
             sort_mode="multi",
             row_deletable=True,
             merge_duplicate_headers=True,
+            style_data_conditional=[
+                {
+                    'if': {
+                        'column_id': 'countdecision',
+                        'filter_query': '{countdecision} eq "check"'
+                    },
+                    'backgroundColor': 'orange',
+                    'color': 'white',
+                },
+                {
+                    'if': {
+                        'column_id': 'countdecision',
+                        'filter_query': '{countdecision} eq "ok"'
+                    },
+                    'backgroundColor': 'green',
+                    'color': 'white',
+                },
+                {
+                    'if': {
+                        'column_id': 'countdecision',
+                        'filter_query': '{countdecision} eq "critical"'
+                    },
+                    'backgroundColor': 'red',
+                    'color': 'white',
+                },
+            ]
         ),
         html.Div(id="output-data-table"),
         html.Div(id="output-image"),
